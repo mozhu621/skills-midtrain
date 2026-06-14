@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Skill Spec Midtraining — 文献调研报告</title>
+<style>
+  body { font-family: "Noto Sans CJK SC", "PingFang SC", sans-serif; max-width: 960px; margin: 2em auto; padding: 0 1.5em; line-height: 1.75; color: #1a1a2e; }
+  h1 { border-bottom: 3px solid #4361ee; padding-bottom: .3em; }
+  h2 { color: #1d3461; border-left: 5px solid #4361ee; padding-left: .5em; margin-top: 2em; }
+  h3 { color: #30343f; margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92em; }
+  th, td { border: 1px solid #c8cdd8; padding: .45em .6em; text-align: left; vertical-align: top; }
+  th { background: #eef1fb; }
+  tr:nth-child(even) { background: #f7f8fc; }
+  .paper { background: #f7f8fc; border: 1px solid #dde2ef; border-radius: 8px; padding: .8em 1em; margin: .8em 0; }
+  .paper b a { color: #1d3461; }
+  .tldr { color: #4361ee; font-weight: 600; }
+  .rel { color: #555; font-size: .93em; }
+  .key { background: #fff8e6; border: 1px solid #f0d890; border-radius: 8px; padding: .9em 1.1em; margin: 1em 0; }
+  .warn { background: #fdeef0; border: 1px solid #efb3bc; border-radius: 8px; padding: .9em 1.1em; margin: 1em 0; }
+  code { background: #eef1fb; padding: .1em .35em; border-radius: 4px; font-size: .9em; }
+  .meta { color: #777; font-size: .88em; }
+</style>
+</head>
+<body>
+
+<h1>Skill Spec Midtraining：文献调研报告</h1>
+<p class="meta">调研日期：2026-06-12 ｜ 调研范围：tool-use/skill SFT、midtraining 方法学、spec/原则学习、skill selection 评测与 OOD 泛化 ｜ 共覆盖 60+ 篇论文/系统</p>
+
+<h2>0. 全景概览</h2>
+<p>这个想法位于三条研究线的交汇处：<b>① tool-use SFT</b>（教模型"怎么调"，已高度成熟但公认只学到行为模仿）、<b>② midtraining</b>（2025 年起被正式定义为预训练与后训练之间的分布桥接阶段）、<b>③ spec/原则显式学习</b>（从 Constitutional AI → Deliberative Alignment → <b>Model Spec Midtraining</b> 一路演进）。三条线各自都很热，但它们的交点——<b>把 skill/tool 的"适用边界、选择理由、失败模式、验证原则"写成规范文本，在 midtraining 阶段注入</b>——目前是空白。</p>
+
+<div class="key"><b>调研最重要的三个结论</b>
+<ol>
+<li><b>"Model Spec Midtraining" 已被 Anthropic 于 2026-05 正式发表</b>（alignment.anthropic.com/2026/msm）：用约 41M token "讨论 spec 的合成文档"做 midtraining，对齐微调数据需求降 <b>40–60×</b>，agentic misalignment 从 54–68% 降到 5–7%，并优于 Deliberative Alignment 基线。<b>但它明确只做了安全/行为规范域，完全没有触碰 tool/skill use</b>。这既是本想法的直接可行性证明，也要求我们把定位写成"MSM 思想在 skill 域的扩展"（增量贡献，而非首创范式）。</li>
+<li><b>命名无冲突</b>：未发现任何叫 "Skill Spec Midtraining" / "tool spec training" 的工作。但单点要素各有占位者（见 §7 novelty 分析），切割线必须画清楚。</li>
+<li><b>动机有现成定量证据</b>：LLM 超过 30% 的工具调用是不必要的（SMART）；BFCL irrelevance detection 上 Llama3-8B 仅 ~20%；真实 34k skill 库中 prompted skills 的收益脆弱、接近无 skill 基线（arXiv:2604.04323）。"光把 SKILL.md 放进 context 不够"已经有人替我们证明了。</li>
+</ol></div>
+
+<h2>1. 主题一：Spec / 原则显式学习——从 RLAIF 到 Midtraining</h2>
+<p><b>这个主题回答：「知其所以然」式训练是怎么演进到 midtraining 的？</b></p>
+
+<div class="paper"><b><a href="https://alignment.anthropic.com/2026/msm/">Model Spec Midtraining (MSM)</a></b> ｜ Anthropic Alignment Science，2026-05<br>
+<span class="tldr">TL;DR：在预训练与对齐微调之间插入一个阶段，训练大量"讨论 Model Spec 内容及其理由"的合成文档，塑造模型后续微调的泛化方向。</span><br>
+核心结果：(a) 相同微调数据 × 不同 spec → 泛化出不同价值观（证明 spec 文本本身在起作用）；(b) agentic misalignment 54–68% → 5–7%，优于 deliberative alignment；(c) 后续 AFT 数据需求降 40–60×；(d) MSM + 无 CoT 的 AFT &gt; 有 CoT 的 AFT，即原则文本可替代部分 CoT 监督。<br>
+<span class="rel">关系：<b>本想法的母体论文</b>。实验模板（同 SFT 数据 × 不同 spec、数据效率曲线、OOD 评测）可直接复用到 skill 域。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2412.16339">Deliberative Alignment</a></b> (arXiv:2412.16339) ｜ OpenAI，2024-12<br>
+<span class="tldr">TL;DR：直接把 safety spec 文本教给 o 系列模型，训练其回答前回忆并引用 spec 推理，同时降低 jailbreak 和过度拒答。</span><br>
+<span class="rel">关系：证明"教 spec 文本 + 推理时引用" &gt; "从标注样例间接归纳"，且 OOD 泛化更好；MSM 进一步显示 midtraining 注入比这种 SFT 式注入更强。skill 域可设计同款对照（spec 进 SFT vs 进 midtraining）。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2212.08073">Constitutional AI</a></b> (arXiv:2212.08073) ｜ Anthropic，2022<br>
+<span class="tldr">TL;DR：原则只用来生成偏好信号（RLAIF），模型并不直接学习原则文本本身。</span><br>
+<span class="rel">关系：related work 的关键对比点——CAI 学的是原则的"投影"，MSM/本想法学的是原则本身及其 why。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2203.14465">STaR</a></b> (arXiv:2203.14465，2022) 与 rationale/explanation tuning 系列<br>
+<span class="tldr">TL;DR：训练时带"为什么"的理由能显著改善泛化。</span><br>
+<span class="rel">关系：支持 skill spec 数据应包含选择理由与失败模式<b>分析</b>，而非只有规则条文。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2601.08000">Case-Augmented Deliberative Alignment</a></b> (arXiv:2601.08000) ｜ 2026<br>
+<span class="tldr">TL;DR：spec（成文法）+ 判例式案例联合推理，效果优于纯 spec。</span><br>
+<span class="rel">关系：直接启发——skill spec 也应配"判例库"（典型失败案例 + 分析）。</span></div>
+
+<p><b>主题综合</b>：原则学习的演进路径是 <code>原则→偏好信号(CAI) → 原则→SFT推理链(DA) → 原则→midtraining语料(MSM)</code>，每一步都让模型对原则的掌握更"深"（更靠近表征层）、数据效率更高。本想法是把这条已验证的演进路径平移到 skill 域。</p>
+
+<h2>2. 主题二：Midtraining 方法学——为什么是这个阶段</h2>
+<p><b>这个主题回答：为什么 spec 应该放 midtraining，而不是 SFT 或 prompt？</b></p>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2510.14865">Midtraining Bridges Pretraining and Posttraining Distributions</a></b> (arXiv:2510.14865) ｜ CMU，2025<br>
+<span class="tldr">TL;DR：midtraining 的机制是"分布桥接"——为 posttraining 提供更近的初始化；收益在离预训练分布最远的领域（代码、数学）最大，并且优于单纯 continued pretraining。</span><br>
+<span class="rel">关系：tool 调用格式/skill 使用决策恰是离预训练分布很远的领域 → 理论上预测 skill-spec midtraining 收益显著。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2510.23081">A Survey on LLM Mid-Training</a></b> (arXiv:2510.23081，美团/北大) ＋ <a href="https://arxiv.org/html/2510.06826v1">Mid-Training: A Survey</a> (arXiv:2510.06826) ｜ 2025<br>
+<span class="tldr">TL;DR：正式定义 mid-training：中等量级数据/算力，在保持基础能力同时系统性增强指定能力。</span>
+<span class="rel">术语与分类锚点。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2501.00656">OLMo 2</a></b> (arXiv:2501.00656，Ai2) ＋ <b><a href="https://arxiv.org/abs/2404.06395">MiniCPM</a></b> (arXiv:2404.06395，清华/面壁)<br>
+<span class="tldr">TL;DR：开源界实证——退火期注入指令/高质量数据显著拉升下游；MiniCPM 显示 decay 期混 SFT 数据优于"训完再 SFT"。</span><br>
+<span class="rel">关系："两阶段注入 &gt; 单阶段 SFT"的最直接量化证据；也给出实操配方（在学习率退火段注入）。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2309.14316">Physics of Language Models 3.1</a></b> (arXiv:2309.14316，Allen-Zhu &amp; Li)<br>
+<span class="tldr">TL;DR：知识必须在预训练期经过充分增强（改写、多样表述）才能被抽取，否则后续指令微调救不回来（0% 抽取率）。</span><br>
+<span class="rel">关系：skill 的适用边界属于"知识"→ 必须在 midtraining 注入并做多样化改写，不能指望 SFT。直接指导数据合成策略。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2405.05904">Does Fine-Tuning on New Knowledge Encourage Hallucinations?</a></b> (arXiv:2405.05904，Google/Technion，2024)<br>
+<span class="tldr">TL;DR：SFT 期注入新知识学得慢，且学会之后幻觉率上升。</span><br>
+<span class="rel">关系：直接 SFT 教 skill 边界可能诱发"幻觉式调用"（编造工具适用性）——为"midtraining 而非 SFT"提供风险侧论据。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2402.12847">Pre-Instruction-Tuning (PIT)</a></b> (arXiv:2402.12847，FAIR) ＋ <a href="https://arxiv.org/html/2406.14491v1">Instruction Pre-Training</a> (arXiv:2406.14491，微软)<br>
+<span class="tldr">TL;DR：调整知识与指令数据的注入顺序（先 QA 后文档）能让知识吸收提升 17.8%——存在显著的顺序/课程效应。</span><br>
+<span class="rel">关系：支持"spec 先于轨迹"的课程设计假设（RQ3 的机制基础）。</span></div>
+
+<p><b>主题综合</b>：四条独立证据链（分布桥接机制、退火期注入实证、知识抽取的预训练依赖、SFT 注入新知的幻觉风险）一致指向同一结论：<b>"skill 为什么/何时用"这类陈述性知识应在 midtraining 注入，SFT 只负责把它接到行为上</b>。这是 proposal 立论的方法学支柱。</p>
+
+<h2>3. 主题三：Tool-use SFT 主流配方——它们到底教了什么</h2>
+<p><b>这个主题回答：现有 tool SFT 的天花板在哪、为什么"只教 how"？</b></p>
+
+<table>
+<tr><th>工作</th><th>arXiv / 年份</th><th>一句话</th><th>教了什么 / 缺什么</th></tr>
+<tr><td><a href="https://arxiv.org/abs/2302.04761">Toolformer</a></td><td>2302.04761 / 2023, Meta</td><td>自监督插 API 调用，按"是否降 LM loss"过滤</td><td>"何时调用"靠 perplexity 启发式，无显式理由</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2305.15334">Gorilla</a></td><td>2305.15334 / 2023, Berkeley</td><td>GPT 合成 API 指令数据做 SFT</td><td>对文档浅层匹配，易幻觉不存在的 API</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2307.16789">ToolLLM / ToolBench</a></td><td>2307.16789 / 2023, 清华</td><td>16k RapidAPI + DFS 决策树轨迹蒸馏</td><td>模仿轨迹表面形式；其 G1→G3 OOD 阶梯反而成了标准评测</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2406.18518">APIGen</a> / <a href="https://arxiv.org/abs/2409.03215">xLAM</a></td><td>2406.18518, 2409.03215 / 2024, Salesforce</td><td>可执行验证 + 多级过滤的函数调用数据流水线</td><td>教格式正确性与参数填充，不教选择理由</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2409.00920">ToolACE</a></td><td>2409.00920 / 2024, 华为 (ICLR'25)</td><td>多智能体自演化合成 26k API、50 万对话，双层验证</td><td>规模与多样性的 SOTA 配方，仍是行为克隆</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2410.04587">Hammer</a></td><td>2410.04587 / 2024, OPPO/上交</td><td>function masking + 无关函数增强</td><td>已触及"对无关工具敏感"，但只在数据扰动层面，无显式 spec</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2410.03439">ToolGen</a></td><td>2410.03439 / 2024</td><td>工具变 vocab token，文档"记忆"进参数</td><td>证明"工具知识入权重"可行且优于 in-context 文档管线</td></tr>
+<tr><td><a href="https://arxiv.org/html/2407.00121v1">Granite-FC</a></td><td>2407.00121 / 2024, IBM</td><td>函数调用拆成粒度子任务多任务学习</td><td>"分解工具能力"先例，但仍是行为层不是理由层</td></tr>
+</table>
+
+<p><b>主题综合</b>：该赛道的公认共识（多篇综述 + Nemotron-Tool-N1 等）：<b>SFT 记住轨迹而非内化推理</b>——对新工具/扰动描述脆弱、工具幻觉、过度调用。并且有量化证据：只在近测试分布训练时 OOD 性能可跌 67%。这正是 proposal 的"现状批判"段落，且 xLAM/ToolACE 配方应作为我们 pipeline 中的标准 SFT 阶段（保持该阶段不变，只动 midtraining，才能干净归因）。</p>
+
+<h2>4. 主题四：教"边界 / 何时不用 / 验证"的已有尝试（novelty 威胁区）</h2>
+<p><b>这个主题回答：谁已经在教 spec 的某个单点要素？我们和他们的切割线在哪？</b></p>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2502.11435">SMART / SMARTAgent</a></b> (arXiv:2502.11435) ｜ UIUC，ACL'25 Findings ｜ <span class="warn" style="display:inline; padding:.1em .5em;">最强 novelty 威胁</span><br>
+<span class="tldr">TL;DR：量化 LLM &gt;30% 的调用是不必要的；用 SMART-ER 数据 SFT 让推理链在参数知识与工具间显式切换，调用量降 24%、性能升 37%。</span><br>
+<span class="rel">切割线：只覆盖"用 vs 不用"<b>单一维度</b>；是任务级 SFT，不是 midtraining；rationale 是逐例 CoT 而非稳定的规范文本。它同时是我们最好的动机证据 + 必比 baseline。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2403.12881">Agent-FLAN</a></b> (arXiv:2403.12881) ｜ 上海AI Lab，ACL'24 Findings<br>
+<span class="tldr">TL;DR：发现 agent 训练把格式与推理纠缠并引入幻觉；显式构造负样本教模型"何时不该调用"，并建 Agent-H 幻觉基准。</span><br>
+<span class="rel">切割线：用负样本<b>隐式</b>教边界，没有 spec 式的"为什么"。必引 + 强 baseline，Agent-H 可直接用于评测。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2502.18990">GenTool</a></b> (arXiv:2502.18990) ｜ ACL'25 Findings<br>
+<span class="tldr">TL;DR：专攻 unseen tool 泛化（Zero-to-One / Weak-to-Strong 两维），靠理解相似工具功能差异的两阶段微调取得泛化。</span><br>
+<span class="rel">切割线：与我们"相似 skill 区分"要素最接近的训练工作，但仍是 SFT 内的监督设计、无规范文本。其 OOD 协议值得复现（RQ4）。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2504.18851">When2Call</a></b> (arXiv:2504.18851) ｜ NVIDIA，NAACL'25<br>
+<span class="tldr">TL;DR：测"调用 / 追问澄清 / 承认不能"三分决策，SOTA 模型仍有大缺口；偏好优化优于普通 SFT。</span>
+<span class="rel">RQ1 评测 + 其训练集可作对照。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2412.04141">Relign</a></b> (arXiv:2412.04141)：扩展动作空间加入"犹豫/澄清"，对齐式降工具幻觉。 ＋ <b><a href="https://arxiv.org/abs/2510.22977">The Reasoning Trap</a></b> (arXiv:2510.22977)：增强推理反而放大工具幻觉，现有缓解手段牺牲能力。<br>
+<span class="rel">后者是"需要更根本的训练阶段解法"的绝佳论据。</span></div>
+
+<div class="paper"><b>文档侧改进（推理时）</b>：<a href="https://arxiv.org/abs/2308.00675">Tool Docs Enable Zero-Shot Tool-Usage</a> (2308.00675，"只给文档 ≈ few-shot demo，工具多时文档更优")；<a href="https://arxiv.org/abs/2401.06201">EasyTool</a> (2401.06201，重写文档即提性能)；<a href="https://arxiv.org/abs/2410.08197">DRAFT</a> (2410.08197)。<br>
+<span class="rel">共同构成<b>必须打败的 "spec 放 context" baseline</b>；同时佐证 spec 内容本身有信息增益。ToolTweak (2510.02554) 显示模型对描述措辞脆弱 → "spec 入权重"可主张鲁棒性优势。</span></div>
+
+<div class="paper"><b>调用后验证</b>：<a href="https://arxiv.org/abs/2305.11738">CRITIC</a> (prompt 级自我修正)；<a href="https://arxiv.org/abs/2506.13977">CRITICTOOL</a> (错误反思评测)。<br>
+<span class="rel">"验证"作为能力存在研究，但<b>没人把验证原则写成 spec 来学</b>——这是我们五要素里最空白的一个。</span></div>
+
+<h2>5. 主题五：Agent Skills 生态与 skill 内化（2025–2026 热点）</h2>
+<p><b>这个主题回答：skill 作为一等公民的生态长什么样？内化赛道卷到哪了？</b></p>
+
+<div class="paper"><b><a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Anthropic Agent Skills / SKILL.md</a></b> ｜ 2025-10 发布、2025-12 开放标准<br>
+<span class="tldr">TL;DR：skill = YAML 元数据 + 指令 + 脚本的文件夹，渐进式加载；已被 Codex CLI、Gemini CLI 等采纳。</span><br>
+<span class="rel">关系：这是<b>推理时</b>注入 skill spec；我们做的是把它<b>训练进权重</b>——天然对照组，而且 SKILL.md 格式可直接作为我们 spec 的种子格式。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2604.04323">How Well Do Agentic Skills Work in the Wild?</a></b> (arXiv:2604.04323) ｜ 2026<br>
+<span class="tldr">TL;DR：在 34k 真实 skill 库上，检索使用 skills 的收益脆弱、常接近无 skill 基线。</span><br>
+<span class="rel">关系：<b>现成的 motivation 证据</b>——光把 SKILL.md 放进 context，模型不会用；需要训练侧干预。</span></div>
+
+<div class="paper"><b><a href="https://arxiv.org/abs/2509.13310">Agentic CPT / AgentFounder</a></b> (arXiv:2509.13310) ｜ 阿里通义，2025<br>
+<span class="tldr">TL;DR：首次系统提出 agentic 中间训练阶段，证明 mid-training 注入 agentic prior 能缓解 post-training 的优化张力。</span><br>
+<span class="rel">关系："在 SFT 前加 agent 向训练阶段"的直接可行性证据；但其数据是<b>行为轨迹</b>，不是 skill 规范——和我们正交，也是 baseline (e)。同路线还有 daVinci-Dev (2601.18418，软件工程域)。</span></div>
+
+<div class="paper"><b>Skill 内化赛道（2026 上半年密集出现）</b>：SKILL0 (2604.02268)、SkillC (2605.27899)、Skill-SD (2604.10674)、Trace2Skill、SIRI——"训练时用 skill、推理时零依赖"。<br>
+<span class="rel">关系 + 风险：都从<b>轨迹/RL 信号</b>内化行为，无人从<b>规范文本</b>学习理由。赛道升温快（2026.4–5 三连发），<b>建议尽快占坑</b>，related work 以"轨迹内化 vs 规范理解"为轴切割。综述锚点：SoK: Agentic Skills (2602.20867)、Agent Skills Survey (2602.12430)。</span></div>
+
+<p>早期源头：<a href="https://arxiv.org/abs/2305.16291">Voyager</a> (2305.16291，skill library 开山，in-context)；行为蒸馏系：AgentTuning (2310.12823)、FireAct (2310.05915)、AgentInstruct (2407.03502)。</p>
+
+<h2>6. 主题六：评测基准全景与 RQ 映射</h2>
+
+<table>
+<tr><th>Benchmark</th><th>测什么</th><th>OOD split</th><th>对应 RQ</th></tr>
+<tr><td><a href="https://arxiv.org/abs/2310.03128">MetaTool</a> (2310.03128)</td><td>tool usage awareness（该不该用）+ 4 类 selection，含<b>相似工具区分</b>子任务</td><td>—</td><td><b>RQ1 核心</b></td></tr>
+<tr><td><a href="https://gorilla.cs.berkeley.edu/blogs/13_bfcl_v3_multi_turn.html">BFCL v3/v4</a></td><td>AST/可执行 + <b>Irrelevance Detection</b> + 多轮多步</td><td>held-out 域</td><td>RQ1 + RQ2</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2504.18851">When2Call</a> (2504.18851)</td><td>调用/澄清/拒绝三分决策</td><td>—</td><td>RQ1</td></tr>
+<tr><td><a href="https://www.emergentmind.com/topics/acebench">ACEBench</a> (2501.12851)</td><td>Normal / Special（模糊不可解）/ Agent 三类</td><td>—</td><td>RQ1 + RQ2</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2312.14033">T-Eval</a> (2312.14033)</td><td>分维度：plan / reason / retrieve / understand / <b>review（结果校验）</b></td><td>—</td><td><b>RQ2 核心</b></td></tr>
+<tr><td><a href="https://arxiv.org/abs/2406.12045">τ-bench</a> / <a href="https://arxiv.org/abs/2506.07982">τ²-bench</a></td><td>模拟用户 + 域策略约束，按最终状态判对</td><td>—</td><td>RQ2（policy compliance 与 spec 同构）</td></tr>
+<tr><td><a href="https://zhichengg.github.io/stb.github.io/">StableToolBench</a> (2403.07714)</td><td>ToolBench 稳定版</td><td><b>G1-Tool → G1-Cat → G2-Cat → G3 OOD 阶梯</b></td><td><b>RQ4 核心</b> + RQ3 训练集</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2405.08355">Seal-Tools</a> (2405.08355)</td><td>大规模工具集，多工具/嵌套难例</td><td>可自切</td><td>RQ3 + RQ4</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2411.13547">ToolScan</a> (2411.13547)</td><td>七类错误 taxonomy（工具/参数幻觉、恢复失败…）</td><td>—</td><td>RQ2 错误分布分析</td></tr>
+<tr><td>Agent-H (Agent-FLAN)</td><td>agent 幻觉</td><td>—</td><td>RQ1/RQ2 辅助</td></tr>
+<tr><td><a href="https://arxiv.org/abs/2408.04682">ToolSandbox</a> / <a href="https://arxiv.org/abs/2409.03797">NESTFUL</a> / <a href="https://arxiv.org/abs/2304.08244">API-Bank</a></td><td>有状态交互 / 嵌套序列 / 三能力分档</td><td>—</td><td>RQ2 进阶</td></tr>
+</table>
+
+<h2>7. 横向综合：共识、张力、空白与 novelty 分析</h2>
+
+<h3>7.1 共识</h3>
+<ul>
+<li>行为克隆式 tool SFT 学到表面形式，OOD 脆弱、幻觉、过度调用——三个赛道（数据合成、对齐、评测）的论文都承认。</li>
+<li>"何时不用"是当前最大的能力缺口（MetaTool、When2Call、BFCL irrelevance、SMART 多方印证）。</li>
+<li>原则/spec 显式学习 &gt; 从样例归纳，且注入越早（越靠 midtraining）效果与数据效率越好（DA → MSM 的演进；MiniCPM/OLMo2/PIT 旁证）。</li>
+</ul>
+
+<h3>7.2 张力</h3>
+<ul>
+<li><b>入权重 vs 入上下文</b>：ToolGen 证明工具知识入权重可行且更优；但 docs-in-context 路线（2308.00675、EasyTool、Agent Skills 生态）工程上更灵活。我们的实验必须正面回答这个张力（baseline d）。</li>
+<li><b>SFT 提升 in-distribution 但伤 OOD</b>（GenTool 等）vs "训练才能根治"——支持把"可迁移的 spec 推理模式"而非"具体工具记忆"作为训练目标。</li>
+<li>增强推理放大工具幻觉（Reasoning Trap）vs rationale 改善泛化（STaR）——提示 rationale 的<b>来源</b>很重要：逐例生成的 CoT ≠ 稳定的规范文本。</li>
+</ul>
+
+<h3>7.3 空白（= 我们的空间）</h3>
+<ul>
+<li>无人把「适用边界 + 何时不用 + 相似 skill 区分 + 失败模式 + 调用后验证」<b>五要素写成规范文本</b>并以 midtraining 注入。</li>
+<li>"调用后验证原则"作为训练内容完全空白（只有 prompt 级 CRITIC 和评测级 CRITICTOOL）。</li>
+<li>tool SFT 的数据效率 scaling 曲线研究很少——RQ3 本身就能成为一个贡献点。</li>
+</ul>
+
+<h3>7.4 Novelty 切割表</h3>
+<table>
+<tr><th>已有工作</th><th>它做了</th><th>我们不同在</th></tr>
+<tr><td>MSM (Anthropic 2026)</td><td>spec midtraining，安全/行为域</td><td>对象换成 skill：边界/区分/失败模式/验证；评测换成 tool-use 全家桶</td></tr>
+<tr><td>SMART</td><td>"用 vs 不用" rationale SFT</td><td>五要素 vs 单要素；midtraining vs SFT；规范文本 vs 逐例 CoT</td></tr>
+<tr><td>Agent-FLAN</td><td>负样本隐式教边界</td><td>显式 spec + why vs 隐式负样本</td></tr>
+<tr><td>GenTool</td><td>相似工具区分的监督设计</td><td>同上；且我们测验证与失败模式维度</td></tr>
+<tr><td>Agentic CPT</td><td>agent 轨迹 midtraining</td><td>规范文本 vs 行为轨迹（数据本质不同，可叠加）</td></tr>
+<tr><td>SKILL0/SkillC 等内化系</td><td>轨迹/RL 内化 skill 行为</td><td>规范理解 vs 轨迹内化</td></tr>
+<tr><td>Agent Skills (SKILL.md)</td><td>推理时 spec 注入标准</td><td>训练时注入；SKILL.md 是我们的对照组与数据种子</td></tr>
+</table>
+
+<h3>7.5 风险提示</h3>
+<div class="warn">
+<ul>
+<li><b>时间窗口</b>：skill 内化赛道 2026.4–5 三连发，MSM 发布后大概率有人想到同样的扩展。建议 3 个月内出 workshop/preprint 占坑。</li>
+<li><b>故事崩塌点</b>：若 spec midtraining 打不过"spec 全文放 context"（等 token 预算下），核心主张不成立——这是必须最先跑的实验。</li>
+<li><b>ChatGPT 分享链接无法访问</b>（登录墙），本调研基于公开文献；若链接中有额外私有讨论，请导出后补充。</li>
+</ul>
+</div>
+
+<p class="meta">附：完整论文清单与链接已内嵌于各节。生成于 2026-06-12，由三路并行文献调研整合。</p>
+
+</body>
+</html>

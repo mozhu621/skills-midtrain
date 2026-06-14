@@ -1,0 +1,26 @@
+# Skill Spec Midtraining — Qwen3.5-4B-Base on 8x H200
+model: Qwen/Qwen3.5-4B-Base
+corpus_dir: data/corpus
+output_dir: checkpoints/ssm_qwen3p5_4b
+
+# optimization (midtrain regime: low LR, short warmup, cosine anneal)
+lr: 2.0e-5
+lr_scheduler: cosine
+warmup_steps: 50
+weight_decay: 0.1
+max_grad_norm: 1.0
+epochs: 1
+max_steps: -1            # -1 = one epoch over packed corpus
+
+# batching: 8 GPU x 2 x 8 accum x 4096 tok = 512k tok/step
+per_device_batch_size: 2
+grad_accum: 8
+
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+logging_steps: 10
+save_steps: 500
+save_total_limit: 2
+eval_steps: 200
+report_to: []
+seed: 1234

@@ -1,0 +1,44 @@
+# Skill sources for SSM corpus.
+# kinds: skill_md (SKILL.md folders) | api_tool (function/tool JSON defs)
+
+github_repos:                       # curated, always cloned (shallow)
+  - repo: anthropics/skills
+    kind: skill_md
+  - repo: obra/superpowers
+    kind: skill_md
+
+github_discovery:                   # repo search via api.github.com (unauthenticated, 10 req/min)
+  enabled: true
+  min_stars: 3
+  max_repos_per_query: 25
+  queries:
+    - "claude skills in:name,description"
+    - "agent skills SKILL.md"
+    - "topic:claude-skills"
+    - "topic:agent-skills"
+    - "topic:claude-code-plugin"
+    - "claude-code plugin skills"
+  exclude_repos:                    # forks/mirrors we don't want
+    - anthropics/claude-code        # CLI itself, no skills
+
+websites:                           # marketplace pages -> harvest github repo links -> clone
+  - name: skillsmp
+    base: "https://skillsmp.com"
+    enabled: true
+  - name: claudecodemarketplace
+    base: "https://claudecodemarketplace.com"
+    enabled: true
+
+git_tool_repos:                     # API-level tool pools living in git
+  - repo: fairyshine/Seal-Tools
+    kind: api_tool
+    enabled: true
+
+hf_datasets:                        # API-level tool pools on HuggingFace
+  - name: xlam60k
+    dataset: Salesforce/xlam-function-calling-60k
+    kind: api_tool
+    enabled: true                   # may be license-gated; skipped gracefully on failure
+  - name: toolbench
+    dataset: null                   # tools live on GDrive; not automatable
+    enabled: false

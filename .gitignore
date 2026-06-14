@@ -1,0 +1,25 @@
+# ---- large / regenerable artifacts (never upload) ----
+# data/      4.4G raw skill dumps, skills.jsonl, caches, debug outputs
+# checkpoints/ 24G trained weights
+# logs/      local run accounting
+# refs/      third-party reference repos (MSM) — not ours to redistribute
+data/
+checkpoints/
+logs/
+refs/
+
+# ---- secrets ----
+.env
+*.key
+*.pem
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ---- os ----
+.DS_Store

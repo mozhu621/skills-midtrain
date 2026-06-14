@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Research Proposal — Skill Spec Midtraining</title>
+<style>
+  body { font-family: "Noto Sans CJK SC", "PingFang SC", sans-serif; max-width: 960px; margin: 2em auto; padding: 0 1.5em; line-height: 1.75; color: #1a1a2e; }
+  h1 { border-bottom: 3px solid #2a9d8f; padding-bottom: .3em; }
+  h2 { color: #14532d; border-left: 5px solid #2a9d8f; padding-left: .5em; margin-top: 2em; }
+  h3 { color: #30343f; margin-top: 1.4em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: .92em; }
+  th, td { border: 1px solid #c8cdd8; padding: .45em .6em; text-align: left; vertical-align: top; }
+  th { background: #e8f5f1; }
+  tr:nth-child(even) { background: #f6faf8; }
+  .key { background: #e8f5f1; border: 1px solid #a7d8c9; border-radius: 8px; padding: .9em 1.1em; margin: 1em 0; }
+  .warn { background: #fdeef0; border: 1px solid #efb3bc; border-radius: 8px; padding: .9em 1.1em; margin: 1em 0; }
+  .spec { background: #f4f1fb; border: 1px solid #cfc4ec; border-radius: 8px; padding: .9em 1.1em; margin: 1em 0; font-size: .94em; }
+  code, pre { background: #eef1f4; border-radius: 4px; }
+  code { padding: .1em .35em; font-size: .9em; }
+  pre { padding: .8em 1em; overflow-x: auto; line-height: 1.5; }
+  .meta { color: #777; font-size: .88em; }
+  blockquote { border-left: 4px solid #2a9d8f; margin: 1em 0; padding: .3em 1em; color: #444; background: #f6faf8; }
+</style>
+</head>
+<body>
+
+<h1>Skill Spec Midtraining：让模型在学会"怎么调"之前先懂"为什么调"</h1>
+<p class="meta">Research Proposal ｜ 2026-06-12 ｜ 配套文献调研见 <code>survey.html</code></p>
+
+<h2>1. 摘要</h2>
+<p>现有 tool / skill SFT 主要教模型模仿"怎么调用工具"，缺少对"为什么需要该 skill、什么时候不用、相似 skill 如何区分、调用后如何验证结果"的显式学习。我们提出 <b>Skill Spec Midtraining (SSM)</b>：在 tool-use SFT 之前插入一个 midtraining 阶段，用大规模合成语料让模型先学习每类 skill 的<b>适用边界、选择理由、失败模式和使用原则</b>（统称 Skill Spec），再做标准 tool SFT。本工作把 Anthropic 的 Model Spec Midtraining（MSM, 2026）——"知其然更要知其所以然"的训练思想——从安全行为规范域扩展到 skill/tool 域。MSM 在安全域已实证：spec midtraining 使后续微调数据需求降 40–60×、OOD 误对齐率从 54–68% 降到 5–7%。我们假设同样的机制迁移到 skill 域，将提升 skill selection（RQ1）、execution 质量（RQ2）、数据效率（RQ3）与 OOD 泛化（RQ4）。</p>
+
+<h2>2. 动机与立论</h2>
+<h3>2.1 现状的三个定量痛点</h3>
+<ul>
+<li><b>不知道何时不用</b>：LLM 超过 30% 的工具调用是不必要的（SMART, arXiv:2502.11435）；BFCL Irrelevance Detection 上 Llama3-8B 仅 ~20%。</li>
+<li><b>给了 spec 也不会用</b>：在 34k 真实 skill 库上，推理时检索注入 skills 的收益脆弱、常接近无 skill 基线（arXiv:2604.04323）——说明问题不在"缺信息"而在"缺内化"。</li>
+<li><b>SFT 学形不学神</b>：行为克隆式 tool SFT 对新工具/扰动描述脆弱（近测试分布训练时 OOD 可跌 67%），增强推理反而放大工具幻觉（The Reasoning Trap, arXiv:2510.22977）。</li>
+</ul>
+
+<h3>2.2 为什么是 midtraining（而非 SFT 或 prompt）</h3>
+<ul>
+<li><b>机制</b>：midtraining 做"分布桥接"、重塑表征，收益在离预训练分布最远的领域最大（arXiv:2510.14865）——tool 调用恰属此类；SFT 只能在已有表征上学格式映射。</li>
+<li><b>知识抽取</b>：陈述性知识必须在(中期)预训练经多样化改写注入才可被下游抽取，SFT 救不回来（Physics of LM 3.1, arXiv:2309.14316）；SFT 期注入新知识还会推高幻觉（arXiv:2405.05904）。</li>
+<li><b>先例</b>：MSM 实测 spec midtraining 优于 Deliberative Alignment 式 SFT 注入，且无 CoT 的后续微调即可超过有 CoT 的基线。</li>
+</ul>
+
+<div class="key"><b>核心假设</b>：skill 的"为什么/何时/边界/验证"是一种<b>陈述性知识 + 推理模式</b>，应在 midtraining 注入权重；SFT 阶段只负责把它接到调用行为上。学过 spec 的模型在未见过的工具、组合与领域上，会用 spec 推理模式补位，而不是死记工具-轨迹映射。</div>
+
+<h2>3. 方法</h2>
+<h3>3.1 Skill Spec 的五要素定义</h3>
+<p>对每个 skill（粒度：API 单函数 → 函数族 → 复合 skill，如 SKILL.md），编写结构化规范：</p>
+<div class="spec">
+<b>S1 功能与适用边界</b>（capability &amp; scope）：能做什么、输入输出契约、<b>不能</b>做什么<br>
+<b>S2 何时不用</b>（when-NOT-to-use）：参数知识可答时不调用；前置条件不满足时澄清而非硬调；无合适工具时明确拒绝<br>
+<b>S3 相似 skill 区分</b>（contrastive disambiguation）：与近邻 skill 的成对对比——什么时候用 A 不用 B，给判据不给死规则<br>
+<b>S4 失败模式</b>（failure modes）：典型错误（参数幻觉、错误嵌套、状态依赖违反）+ 判例库（真实失败案例 + 归因分析，借鉴 Case-Augmented DA, arXiv:2601.08000）<br>
+<b>S5 调用后验证原则</b>（post-call verification）：返回值的合理性检查、何时重试 / 换工具 / 上报失败
+</div>
+<p>S2/S3/S5 是文献中最空白的三个要素（见 survey §4、§7.3）。</p>
+
+<h3>3.2 数据合成 pipeline（仿 MSM 配方）</h3>
+<ol>
+<li><b>Spec 编写</b>：从 ToolBench/Seal-Tools/xLAM 工具池 + Anthropic skills 仓库抽取 ~2–5k 个 skill，用强模型（Claude/GPT）按五要素模板生成 spec，关键子集人工校对。SKILL.md 格式作为种子。</li>
+<li><b>讨论性语料合成</b>（MSM 的关键：不是 spec 原文堆砌，而是"讨论 spec 的文档"）：多体裁改写——教程、FAQ、两个工程师的争论、代码评审对话、事后复盘（postmortem）、对比评测博客、错误案例分析。每个 spec 点位 ≥10 种表述（Physics 3.1 的多样化改写要求）。</li>
+<li><b>判例库</b>：用现有模型在 ToolScan 七类错误 taxonomy 上批量采集真实失败轨迹，配归因分析文档。</li>
+<li><b>规模</b>：对标 MSM 的 ~41M token，目标 50–200M token（7B 模型量级），与 midtraining 常规配比（混入 5–15% 通用语料防遗忘）。</li>
+</ol>
+
+<h3>3.3 训练流程</h3>
+<pre>Base LM（如 Qwen3-8B-Base / Llama-3.1-8B）
+   │
+   ├─ Stage 1: Skill Spec Midtraining（SSM 语料 + 通用语料回放，LR 退火段注入）
+   │
+   └─ Stage 2: 标准 tool SFT（固定配方：xLAM / ToolACE 公开数据，所有对照组完全一致）
+</pre>
+<p>归因纪律：<b>Stage 2 对所有组严格一致，只动 Stage 1</b>。SSM 语料里不含任何 Stage 2 SFT 的轨迹格式样本，避免泄漏。</p>
+
+<h3>3.4 对照组与 baseline</h3>
+<table>
+<tr><th>#</th><th>组</th><th>回答什么问题</th></tr>
+<tr><td>B0</td><td>Base + 直接 tool SFT</td><td>主对照</td></tr>
+<tr><td>B1</td><td>Base + 等量<b>通用</b>语料 midtraining + SFT</td><td>排除"多训了 token"的混淆</td></tr>
+<tr><td>B2</td><td>Base + 等量<b>工具轨迹</b> midtraining（Agentic CPT 式, arXiv:2509.13310）+ SFT</td><td>规范文本 vs 行为轨迹，数据本质之争</td></tr>
+<tr><td>B3</td><td>B0 + 推理时 spec 放 context（SKILL.md / docs-in-context, arXiv:2308.00675）</td><td><b>故事成立的生死线</b>：等信息量下，入权重是否胜入上下文</td></tr>
+<tr><td>B4</td><td>spec 混入 <b>SFT</b> 阶段（DA 式）而非 midtraining</td><td>注入阶段消融（MSM 的核心对照在 skill 域复现）</td></tr>
+<tr><td>B5</td><td>SMART-ER SFT（arXiv:2502.11435）/ Agent-FLAN 负样本式</td><td>对比已有"教边界"方法</td></tr>
+<tr><td>A1-A5</td><td>五要素逐项消融（去掉 S1…S5 之一）</td><td>哪个要素贡献最大；预期 S3 主导 selection、S5 主导 execution</td></tr>
+<tr><td>A6</td><td>SSM + B3 叠加</td><td>权重内 spec 与上下文 spec 是否互补</td></tr>
+</table>
+
+<h2>4. 研究问题与实验设计</h2>
+
+<h3>RQ1：SSM 是否提升 skill selection？</h3>
+<table>
+<tr><th>维度</th><th>设计</th></tr>
+<tr><td>评测</td><td><b>MetaTool</b>（重点报"相似工具区分"子任务）、<b>BFCL Relevance/Irrelevance</b>、<b>When2Call</b>（调用/澄清/拒绝三分）、ACEBench-Special</td></tr>
+<tr><td>指标</td><td>selection acc、irrelevance 检出率、tool-call 触发率（对照 SMART 的 ">30% 多余调用"基线）、澄清率</td></tr>
+<tr><td>预期</td><td>SSM 在相似工具区分与 irrelevance 上显著超 B0/B1；触发率下降而任务成功率不降</td></tr>
+</table>
+
+<h3>RQ2：提升是否不只是 selection，而是"用得更好"？</h3>
+<table>
+<tr><th>维度</th><th>设计</th></tr>
+<tr><td>评测</td><td><b>T-Eval</b> 分维度（重点 review/plan 维度）、<b>BFCL v3 多轮</b>、<b>τ²-bench</b>（policy compliance）、Agent-H（幻觉）</td></tr>
+<tr><td>错误分析</td><td>用 <b>ToolScan 七类错误 taxonomy</b> 做错误分布对比：SSM 应选择性降低参数幻觉、非法调用、错误恢复失败（S4/S5 的直接预测）</td></tr>
+<tr><td>行为探针</td><td>检查模型是否在 CoT 中<b>自发引用 spec 判据</b>（仿 Deliberative Alignment 的引用率分析）；S5 是否引发自发验证行为（调用后检查返回值的频率）</td></tr>
+</table>
+
+<h3>RQ3：相比直接 tool SFT，SSM 是否更 data-efficient？</h3>
+<table>
+<tr><th>维度</th><th>设计</th></tr>
+<tr><td>协议</td><td>固定评测集，Stage 2 SFT 数据取 {1/64, 1/16, 1/4, 1/1} 画 scaling 曲线（SSM vs B0/B1）；度量"达到 B0 满量性能所需 SFT 样本比例"</td></tr>
+<tr><td>对标</td><td>MSM 报告的 40–60× 是安全域数字；tool 域哪怕复现 5–10× 也是强结果。tool SFT 的系统 scaling 曲线本身在文献中缺失（survey §6.五），该实验独立成贡献</td></tr>
+<tr><td>公平性</td><td>同时报告"总 token 预算对齐"的版本（SSM token + SFT token = B0 的 SFT token 上限），回应"你多训了"的质疑</td></tr>
+</table>
+
+<h3>RQ4：SSM 是否提升 OOD 泛化？</h3>
+<table>
+<tr><th>维度</th><th>设计</th></tr>
+<tr><td>OOD 阶梯</td><td><b>StableToolBench G1-Tool → G1-Cat → G2-Cat → G3</b>（unseen instruction → unseen tool → unseen category 递进）；复现 <b>GenTool</b> 的 Zero-to-One / Weak-to-Strong 协议</td></tr>
+<tr><td>关键切分</td><td><b>spec-seen vs spec-unseen 工具</b>二维拆分：(i) midtraining 见过 spec、SFT 没见过轨迹的工具——测 spec 知识直接迁移；(ii) spec 和轨迹都没见过的工具——测 <b>spec 推理模式</b>的迁移（核心赌注）</td></tr>
+<tr><td>鲁棒性</td><td>工具描述措辞扰动（ToolTweak 式, arXiv:2510.02554）：入权重的 spec 应比 in-context 文档更抗扰动</td></tr>
+<tr><td>组合泛化</td><td>NESTFUL 嵌套调用 + Seal-Tools 多工具难例：见过单 skill spec、没见过组合</td></tr>
+</table>
+
+<h2>5. 预期贡献</h2>
+<ol>
+<li><b>方法</b>：首个把 skill 适用边界/相似区分/失败模式/验证原则写成规范文本、以 midtraining 注入、再接标准 tool SFT 的训练框架（MSM 在 skill 域的扩展）。</li>
+<li><b>数据</b>：开源 Skill Spec 语料（五要素 spec + 多体裁讨论文档 + 失败判例库）与合成 pipeline。</li>
+<li><b>实证</b>：tool SFT 数据效率 scaling 曲线 + "spec 入权重 vs 入上下文"的首个受控对比 + 五要素归因。</li>
+<li><b>机制理解</b>：spec 推理模式能否迁移到 spec-unseen 工具（RQ4 切分 (ii)），回答"模型学到的是知识还是元能力"。</li>
+</ol>
+
+<h2>6. 风险与缓解</h2>
+<table>
+<tr><th>风险</th><th>概率</th><th>缓解</th></tr>
+<tr><td>SSM 打不过 B3（spec 放 context）</td><td>中</td><td>最先跑 B3 对照（第一个月内）。即使打平，"无需上下文开销 + 抗扰动 + 数据效率"仍可立论；若大幅落后则转向 A6 叠加故事</td></tr>
+<tr><td>被抢发（MSM 后显然的扩展；skill 内化赛道 2026.4–5 三连发）</td><td>中高</td><td>3 个月内 arXiv 占坑：先放 RQ1+RQ3 的 8B 单模型结果</td></tr>
+<tr><td>midtraining 损伤通用能力</td><td>低</td><td>通用语料回放 5–15%；MMLU/GSM8K/HumanEval 监控</td></tr>
+<tr><td>spec 合成质量不可控</td><td>中</td><td>关键子集人工校对；用 spec 一致性自动检查（LLM-as-judge 互评）；判例库锚定真实失败</td></tr>
+<tr><td>算力</td><td>—</td><td>主实验 8B 量级：midtraining 50–200M token ≈ 单节点数天；消融在 1.5–3B 上先跑</td></tr>
+</table>
+
+<h2>7. 时间线（6 个月）</h2>
+<table>
+<tr><th>月</th><th>里程碑</th></tr>
+<tr><td>M1</td><td>工具池与 spec 模板定稿；合成 pipeline v1；<b>跑通 B0 vs B3 生死线实验</b>（小模型）</td></tr>
+<tr><td>M2</td><td>SSM 语料全量合成（50M token 起步）；8B 主线 Stage1+Stage2 第一轮</td></tr>
+<tr><td>M3</td><td>RQ1 + RQ3 完整结果；<b>arXiv preprint 占坑</b></td></tr>
+<tr><td>M4</td><td>RQ2 错误分布 + 行为探针；RQ4 OOD 阶梯</td></tr>
+<tr><td>M5</td><td>五要素消融（A1–A5）、A6 叠加、B2/B4/B5 全 baseline 补齐</td></tr>
+<tr><td>M6</td><td>写作投稿（目标：ICLR 2027 / ACL 2027；或先投 NeurIPS 2026 workshop）</td></tr>
+</table>
+
+<h2>8. 一句话定位</h2>
+<blockquote>Model Spec Midtraining 证明了"先懂规范、再学行为"能以 40–60× 的数据效率塑造对齐泛化；<b>Skill Spec Midtraining 把同一原理带到 agent 的工具世界：先懂"为什么与何时"，再学"怎么调"，让 skill selection 与 execution 在分布外依然站得住。</b></blockquote>
+
+<p class="meta">关键参考：MSM (alignment.anthropic.com/2026/msm) ｜ Deliberative Alignment (2412.16339) ｜ SMART (2502.11435) ｜ Agent-FLAN (2403.12881) ｜ GenTool (2502.18990) ｜ Agentic CPT (2509.13310) ｜ Midtraining Bridging (2510.14865) ｜ Physics of LM 3.1 (2309.14316) ｜ 完整文献见 survey.html</p>
+
+</body>
+</html>

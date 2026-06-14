@@ -1,0 +1,86 @@
+# Genre catalog for SSM discussion-corpus synthesis (MSM doc_type stage, curated).
+# weight: sampling weight. elements_bias: spec elements this genre surfaces well.
+genres:
+  - name: engineering tutorial
+    description: a hands-on tutorial teaching teammates how and when to use the skill properly
+    style: second person, numbered sections, short code-free examples, includes a "when not to reach for this" section
+    weight: 1.0
+    elements_bias: [S1, S2, S5]
+  - name: team FAQ
+    description: an internal FAQ page collecting recurring questions about the skill
+    style: Q&A pairs, terse pragmatic answers, occasional links-to-nowhere avoided, 6-10 questions
+    weight: 1.0
+    elements_bias: [S1, S2, S3]
+  - name: slack thread debate
+    description: two or more engineers argue in a chat thread about whether the agent should have used the skill for a task
+    style: informal chat messages with handles like @maya / @deva, disagreement that resolves with a criterion, light tone
+    weight: 1.0
+    elements_bias: [S2, S3]
+  - name: code review discussion
+    description: review comments on a change to an agent workflow, debating the skill invocation it adds or removes
+    style: review comment + replies, quotes one-line diffs in prose, ends with an accepted resolution
+    weight: 0.8
+    elements_bias: [S2, S3, S5]
+  - name: incident postmortem
+    description: a blameless postmortem where misuse of the skill (or skipped verification) contributed to an incident
+    style: timeline, root cause, contributing factors, action items; sober tone
+    weight: 1.0
+    elements_bias: [S4, S5]
+  - name: comparison blog post
+    description: a practitioner blog comparing the skill against a similar skill or against doing the task directly
+    style: first person experience, criteria table described in prose, nuanced verdict
+    weight: 1.0
+    elements_bias: [S3, S1]
+  - name: onboarding runbook
+    description: an excerpt of a team runbook section telling new members how the agent uses this skill in their workflows
+    style: imperative checklists with rationale notes, preconditions and escalation paths
+    weight: 0.8
+    elements_bias: [S1, S2, S5]
+  - name: forum Q&A thread
+    description: a developer-forum question about the skill misbehaving or being misapplied, with answers
+    style: question with context, two or three answers of varying quality, accepted answer explains the principle
+    weight: 1.0
+    elements_bias: [S2, S4]
+  - name: troubleshooting guide
+    description: a symptom-to-cause guide for failures seen when the agent uses this skill
+    style: symptom headings, likely causes, checks to run, when to stop retrying
+    weight: 0.9
+    elements_bias: [S4, S5]
+  - name: case study writeup
+    description: a narrative case study of one task where skill selection and verification decisions mattered
+    style: narrative with decision points highlighted, ends with lessons learned
+    weight: 0.9
+    elements_bias: [S2, S3, S5]
+  - name: design doc review notes
+    description: notes from reviewing a design that routes certain tasks to this skill, questioning the boundaries
+    style: numbered review comments with author responses, decisions recorded
+    weight: 0.7
+    elements_bias: [S1, S3]
+    formal_spec_reference: true
+  - name: lecture notes
+    description: course or workshop notes teaching agent-skill selection using this skill as the worked example
+    style: definitions, worked example, common-mistakes box, exercise prompts without answers
+    weight: 0.7
+    elements_bias: [S1, S2, S3]
+  - name: best-practices memo
+    description: a short internal memo establishing norms for when the agent may invoke this skill unattended
+    style: policy memo with justification per rule, exceptions section
+    weight: 0.8
+    elements_bias: [S2, S5]
+    formal_spec_reference: true
+  - name: failure case analysis
+    description: a deep-dive analysis of one concrete failed usage of the skill, with attribution
+    style: what happened, why the agent chose the skill, which assumption broke, the principle that would have prevented it
+    weight: 1.0
+    elements_bias: [S4, S2]
+  - name: mailing list reply
+    description: a veteran's long-form reply on a mailing list to someone misusing the skill
+    style: quoted snippets of the original mail, patient explanation, rules of thumb with reasons
+    weight: 0.7
+    elements_bias: [S2, S3]
+  - name: agent behavior audit report
+    description: an audit report sampling the agent's recent uses of the skill, scoring them against usage principles
+    style: methodology blurb, findings with qualitative magnitude described in prose (never invented exact counts or percentages), recommendations
+    weight: 0.7
+    elements_bias: [S2, S5, S4]
+    formal_spec_reference: true

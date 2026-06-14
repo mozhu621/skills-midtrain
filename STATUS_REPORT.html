@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>SSM 全链路 Build 状态报告</title>
+<style>
+  body { font-family: "Noto Sans CJK SC", -apple-system, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #1a1a2e; line-height: 1.65; }
+  h1 { border-bottom: 3px solid #4361ee; padding-bottom: .4rem; }
+  h2 { color: #16213e; border-left: 4px solid #4361ee; padding-left: .6rem; margin-top: 2.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid #cdd5e0; padding: .45rem .7rem; text-align: left; }
+  th { background: #eef2ff; }
+  code, pre { background: #f4f5f7; border-radius: 4px; font-size: .88em; }
+  code { padding: .1em .35em; }
+  pre { padding: .8rem 1rem; overflow-x: auto; }
+  .ok { color: #0a7d33; font-weight: 600; }
+  .warn { color: #b45309; font-weight: 600; }
+  .muted { color: #667; font-size: .9em; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: 1.2rem 0; }
+  .card { background: #f8f9ff; border: 1px solid #dde3f5; border-radius: 8px; padding: .8rem 1rem; }
+  .card .num { font-size: 1.5rem; font-weight: 700; color: #4361ee; }
+</style>
+</head>
+<body>
+
+<h1>Skill Spec Midtraining — 全链路 Build 状态报告</h1>
+<p class="muted">2026-06-12 · <code>/raid/longhorn/yuhao/skill-midtrain</code> · 合成模型 deepseek/deepseek-v4-pro (OpenRouter) · 训练基座 Qwen/Qwen3.5-4B-Base</p>
+
+<p><strong>结论：用户要求的"全链路 code 准备 + prompt 调试"已全部完成。</strong>
+下载→解析→Spec 生成→文档合成→质量闸→打包→训练，每一段都用真实数据/真实 API/真实 GPU 跑通；
+两套核心 prompt 经两轮实测迭代后验收（spec v1、docs v2）。API 总开销约 <strong>$0.16</strong>。</p>
+
+<div class="grid">
+  <div class="card"><div class="num">16,983</div>统一入库 skills<br><span class="muted">12,907 SKILL.md + 4,076 API 工具</span></div>
+  <div class="card"><div class="num">129</div>下载仓库（4.3G）<br><span class="muted">curated + GitHub 发现 + 网站收割</span></div>
+  <div class="card"><div class="num">0/20</div>v2 文档 S 码残留<br><span class="muted">v1 基线 19/20</span></div>
+  <div class="card"><div class="num">exit 0</div>4B 训练冒烟<br><span class="muted">4 步 · H200 单卡 · loss≈2.1</span></div>
+</div>
+
+<h2>1. 流水线各段状态</h2>
+<table>
+<tr><th>阶段</th><th>实现</th><th>实测结果</th><th>状态</th></tr>
+<tr><td>0a 下载源</td><td><code>src/collect/download.py</code> + <code>configs/sources.yaml</code></td><td>129 repos（anthropics/skills、superpowers、GitHub 6 组发现查询、skillsmp/marketplace 网站收割）+ Seal-Tools；xLAM gated 已留开关</td><td class="ok">已跑完</td></tr>
+<tr><td>0b 解析入库</td><td><code>src/collect/parse_skills.py</code></td><td>16,983 skills（去重后），两种 kind 统一 schema</td><td class="ok">已跑完</td></tr>
+<tr><td>A Spec 生成</td><td><code>src/synth/gen_specs.py</code> + <code>prompts/skill2spec_v1.md</code></td><td>试点 5/5 通过校验（五要素、TF-IDF 近邻注入 S3 对比）；markdown 渲染人审通过</td><td class="ok">prompt 验收</td></tr>
+<tr><td>B 文档合成</td><td><code>src/synth/gen_docs.py</code> + <code>doc_ideas_v2 / doc_writer_v2 / doc_genres.yaml</code>(16 体裁)</td><td>v2 试点 20/20 成功、17.1k 词；零术语回声（详见 §2）</td><td class="ok">prompt 验收</td></tr>
+<tr><td>B' 质量闸</td><td><code>src/synth/quality.py</code></td><td>防泄漏正则（SFT 轨迹格式/标签残留）+ 长度/重复 + 6-gram LSH 近重去重；v2 通过 20/20</td><td class="ok">已验证</td></tr>
+<tr><td>C1 语料打包</td><td><code>src/train/build_corpus.py</code></td><td>Qwen3.5-4B tokenizer、EOS 分隔、uint32 memmap；v2 试点 23.3k tokens → 21+1 blocks</td><td class="ok">已跑通</td></tr>
+<tr><td>C2 Midtrain</td><td><code>src/train/train_midtrain.py</code> + <code>configs/train_qwen3p5_4b.yaml</code></td><td>单卡 smoke 4 步 exit 0（loss 1.9→2.5 波动属 16 块小样本正常）；8 卡 torchrun 配置就绪（512k tok/step）</td><td class="ok">smoke 通过</td></tr>
+</table>
+<p>一键脚本：<code>scripts/01_download.sh … 05_train.sh</code>（<code>NGPU=8 scripts/05_train.sh</code> 即正式跑）。</p>
+
+<h2>2. Prompt 调试两轮迭代（核心交付）</h2>
+<h3>Round 1 · skill→Spec（v1 验收）</h3>
+<ul>
+<li>修 <code>parse_json_block</code> 数组优先 bug（4/5 误判 missing elements）。</li>
+<li>deepseek-v4-pro 思考 token 烧 max_tokens → client 加 <code>reasoning effort=low</code>、截断/空回不缓存且 ×1.5 重试。重跑 5/5。</li>
+<li>质量证据：pdf spec 的 S3 真实对比近邻技能给选择判据；S4 抓到 SKILL.md 真实 reportlab Unicode 警告；API 工具 spec 含 London/Ontario 歧义等带归因判例。</li>
+</ul>
+<h3>Round 2 · Spec→讨论文档（v1→v2，关键修复）</h3>
+<table>
+<tr><th>指标（20 篇试点）</th><th>v1</th><th>v2</th></tr>
+<tr><td>正文出现 S1–S5 编号（术语回声）</td><td class="warn">19/20</td><td class="ok">0/20</td></tr>
+<tr><td>提及 "spec/guideline 文档"</td><td class="warn">20/20</td><td class="ok">2/20，且全部在 <code>formal_spec_reference: true</code> 体裁（audit report）——设计内</td></tr>
+<tr><td>重代码块被拒</td><td class="warn">2/20</td><td class="ok">0/20</td></tr>
+<tr><td>质量闸通过</td><td>17/20</td><td class="ok">20/20</td></tr>
+</table>
+<p>手段：digest 去标签注入（<code>spec_digest(labeled=False)</code>）、明令禁 S 码、spec 提及按体裁条件化
+（formal 3 种可引用 guideline，其余 13 种必须化为作者经验/团队 lore）、prose-first。
+抽检文风自然（docx 表格 DXA 宽度论辩、pdfplumber vs pdf-analyzer 判据交锋）。
+附带修复 1/20 的 <code>&lt;content&gt;</code> 标签残留（extract_tag 容错 + 质量闸兜底规则）。
+完整记录见 <code>prompts/DEBUG_LOG.md</code>，审计工具 <code>src/synth/audit_docs.py</code>。</p>
+
+<h2>3. 正式跑放量清单（下一步，待指示）</h2>
+<table>
+<tr><th>事项</th><th>说明</th></tr>
+<tr><td>Spec 全量生成</td><td>16,983 skills；按试点单价约 $0.006/spec，全量约 <strong>$100</strong>；可 <code>--limit/--kind</code> 分批</td></tr>
+<tr><td>文档全量合成</td><td>默认 4 体裁 × 3 ideas/skill ≈ 12 docs/skill；按目标 token 预算定采样规模（试点约 1.2k tok/doc、$0.0035/doc）</td></tr>
+<tr><td>Replay 语料</td><td>正式 midtrain 需 <code>--replay</code> 混 ~10% 通用语料防遗忘（HF 缓存已有 fineweb-edu 可用）；纯 SSM 仅限冒烟</td></tr>
+<tr><td>训练提速</td><td>Qwen3.5 混合线性注意力：装 <code>flash-linear-attention</code> + <code>causal-conv1d</code>（当前回退 torch 实现，能跑但慢）</td></tr>
+<tr><td>评测（B0–B5）</td><td>proposal 中对照组与 Stage-2 SFT/评测桩未在本期范围；建议先跑 B3 生死线</td></tr>
+</table>
+
+<h2>4. 产物索引</h2>
+<pre><code>data/skills.jsonl                  16,983 skills（统一 schema）
+data/debug/specs_pilot_v1.jsonl    5 spec（+ md/ 人审渲染）
+data/debug/docs_pilot_v2*.jsonl    20 docs（clean 同 20）
+data/debug/corpus_v2/              train.bin/val.bin/meta.json（23.3k tok）
+checkpoints/smoke/                 冒烟产物
+prompts/DEBUG_LOG.md               两轮迭代完整记录
+README.md                          流水线总览与用法
+logs/api_calls.jsonl               70 次调用（159k prompt + 188k completion tokens）</code></pre>
+
+</body>
+</html>
