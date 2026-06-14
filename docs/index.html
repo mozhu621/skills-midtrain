@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill Spec Midtraining (SSM)</title>
+<style>
+  :root{
+    --ink:#0f1222; --ink-soft:#3a3f5c; --muted:#6b7191;
+    --bg:#f6f7fb; --card:#ffffff; --line:#e7e9f2;
+    --accent:#5b6cff; --accent-2:#8b5cf6; --accent-soft:#eef0ff;
+    --ok:#16a34a; --warn:#d97706; --todo:#94a3b8;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans CJK SC",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);color:#3b3fb0;padding:.1em .4em;border-radius:5px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+
+  /* hero */
+  header.hero{
+    background:radial-gradient(1200px 500px at 70% -10%,rgba(139,92,246,.35),transparent 60%),
+               linear-gradient(135deg,#171a3a 0%,#0f1222 60%);
+    color:#fff;padding:84px 0 72px;position:relative;overflow:hidden;
+  }
+  .hero .wrap{position:relative;z-index:1}
+  .eyebrow{display:inline-block;font-family:var(--mono);font-size:13px;letter-spacing:.18em;
+    text-transform:uppercase;color:#b9c0ff;border:1px solid rgba(185,192,255,.3);
+    padding:5px 12px;border-radius:999px;margin-bottom:22px}
+  .hero h1{font-size:clamp(34px,6vw,58px);line-height:1.05;margin:0 0 18px;font-weight:800;letter-spacing:-.02em}
+  .hero h1 .grad{background:linear-gradient(90deg,#8b5cf6,#5b6cff 55%,#22d3ee);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lead{font-size:clamp(16px,2.3vw,21px);color:#c9cdf0;max-width:760px;margin:0 0 14px}
+  .hero p.sub{font-size:15px;color:#9aa0cf;max-width:720px;margin:0 0 32px}
+  .cta{display:flex;gap:14px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;
+    padding:12px 22px;border-radius:11px;transition:transform .12s ease,box-shadow .12s ease}
+  .btn.primary{background:linear-gradient(90deg,#5b6cff,#8b5cf6);color:#fff;box-shadow:0 10px 30px rgba(91,108,255,.45)}
+  .btn.ghost{background:rgba(255,255,255,.07);color:#e8eaff;border:1px solid rgba(255,255,255,.18)}
+  .btn:hover{transform:translateY(-2px);text-decoration:none}
+
+  /* sections */
+  main section{padding:64px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:clamp(24px,3.2vw,32px);margin:0 0 8px;letter-spacing:-.01em}
+  .section-intro{color:var(--muted);max-width:680px;margin:0 0 36px;font-size:16px}
+  h3{margin:0 0 6px;font-size:17px}
+
+  /* idea cards */
+  .idea-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px}
+  .panel.bad{border-color:#f0d6d6;background:#fdf6f6}
+  .panel.good{border-color:#cfe9d8;background:#f4fbf6}
+  .panel .tag{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+  .panel.bad .tag{color:#c0392b}
+  .panel.good .tag{color:#15803d}
+  .panel p{margin:.5em 0 0;color:var(--ink-soft);font-size:15px}
+
+  /* five elements */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;
+    position:relative;transition:transform .14s ease,box-shadow .14s ease}
+  .card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(20,24,60,.10)}
+  .card .badge{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;
+    border-radius:12px;font-family:var(--mono);font-weight:700;font-size:16px;color:#fff;margin-bottom:14px;
+    background:linear-gradient(135deg,#5b6cff,#8b5cf6)}
+  .card h3{font-size:15.5px;margin-bottom:7px}
+  .card p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.55}
+
+  /* pipeline */
+  .pipe{display:flex;flex-direction:column;gap:0}
+  .stage{display:grid;grid-template-columns:88px 1fr;gap:20px;align-items:start;padding:18px 0;position:relative}
+  .stage:not(:last-child)::after{content:"";position:absolute;left:43px;top:54px;bottom:-18px;width:2px;
+    background:linear-gradient(var(--accent),var(--accent-2));opacity:.35}
+  .stage .num{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:700;color:#fff;background:linear-gradient(135deg,#5b6cff,#8b5cf6);
+    box-shadow:0 6px 18px rgba(91,108,255,.35);z-index:1}
+  .stage .body h3{margin-bottom:3px}
+  .stage .body p{margin:0;color:var(--muted);font-size:14.5px}
+  .stage .body .io{font-family:var(--mono);font-size:12.5px;color:var(--accent);margin-top:6px;display:block}
+
+  /* design list */
+  .feat{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .feat .item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .feat .item h3{display:flex;align-items:center;gap:9px;font-size:15.5px}
+  .feat .item h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .feat .item p{margin:.45em 0 0;font-size:14px;color:var(--ink-soft)}
+
+  /* roadmap */
+  .road{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+  .phase{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+  .phase h3{font-family:var(--mono);font-size:14px;letter-spacing:.04em;color:var(--accent);margin-bottom:14px}
+  .phase ul{list-style:none;margin:0;padding:0}
+  .phase li{font-size:14px;padding:6px 0 6px 26px;position:relative;color:var(--ink-soft)}
+  .phase li::before{position:absolute;left:0;top:5px;font-size:13px}
+  .phase li.done::before{content:"✓";color:var(--ok);font-weight:700}
+  .phase li.todo::before{content:"○";color:var(--todo)}
+  .phase li.key::before{content:"◆";color:var(--warn)}
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 22px;flex:1;min-width:150px}
+  .stat .n{font-size:28px;font-weight:800;letter-spacing:-.02em;background:linear-gradient(90deg,#5b6cff,#8b5cf6);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat .l{font-size:13px;color:var(--muted);margin-top:2px}
+
+  footer{padding:48px 0 60px;color:var(--muted);font-size:14px}
+  footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+  footer .cite{font-size:13px;max-width:560px;line-height:1.5}
+
+  @media(max-width:760px){
+    .idea-grid,.feat{grid-template-columns:1fr}
+    main section{padding:48px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Skill Spec Midtraining</span>
+    <h1>让模型在用工具之前，<br>先<span class="grad">读懂</span>每个工具的<span class="grad">使用边界</span></h1>
+    <p class="lead">把 Anthropic 的 <strong>Model Spec Midtraining</strong> 配方迁移到 skill / tool 域：
+      为每个 skill 合成一份五要素「使用规范」，再写成多体裁讨论语料 midtrain 基座模型——
+      在做工具调用 SFT 之前，就内化「何时该调、何时不该调」的判断。</p>
+    <p class="sub">核心假设：先用自然语言把使用边界讲透，能让对齐训练更好地泛化到训练分布之外的新情况，
+      而不只是「看到这种请求就发这个调用」的模式匹配。</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/mozhu621/skills-midtrain">GitHub 仓库 →</a>
+      <a class="btn ghost" href="https://arxiv.org/abs/2605.02087">MSM 论文 (arXiv:2605.02087)</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section id="idea">
+    <div class="wrap">
+      <h2>这是在解决什么问题</h2>
+      <p class="section-intro">直接在工具调用轨迹上做 SFT，模型容易学成表层的模式匹配。SSM 主张：把判断依据写成规范、教给模型。</p>
+      <div class="idea-grid">
+        <article class="panel bad">
+          <span class="tag">仅 SFT 轨迹</span>
+          <h3>学到「条件反射」</h3>
+          <p>从「请求 → 调用」的配对里，模型记住的是表面触发模式。遇到该澄清、该改用别的 skill、或根本不该调用的新场景时，往往照旧硬调。</p>
+        </article>
+        <article class="panel good">
+          <span class="tag">SSM 先 midtrain</span>
+          <h3>学到「判断依据」</h3>
+          <p>先用大量自然语言文档把每个 skill 的能力边界、禁用场景、易混对象、失败方式与验证方法讲透，再接 SFT——判断更能迁移到没见过的情况。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="spec">
+    <div class="wrap">
+      <h2>五要素 Skill Spec</h2>
+      <p class="section-intro">每个 skill 被结构化成五个要素，每个要素含一段说明文字 + 2–5 条可独立引用的原子原则（principles）。</p>
+      <div class="cards">
+        <article class="card">
+          <div class="badge">S1</div>
+          <h3>能力与边界</h3>
+          <p>做什么、输入/输出契约，并明确说明<strong>不能</strong>做什么。严格来自 skill 文档。</p>
+        </article>
+        <article class="card">
+          <div class="badge">S2</div>
+          <h3>何时不该用</h3>
+          <p>能用自身知识或更简单手段解决、前置条件未满足（应澄清）、超出范围（应直说）。</p>
+        </article>
+        <article class="card">
+          <div class="badge">S3</div>
+          <h3>对比辨析</h3>
+          <p>与库内相似 skill 怎么二选一，给可迁移的判据。相似项由 TF-IDF 近邻自动注入。</p>
+        </article>
+        <article class="card">
+          <div class="badge">S4</div>
+          <h3>失败方式</h3>
+          <p>幻觉参数、违反顺序/状态假设、误读输出、部分失败——每条带迷你案例与根因。</p>
+        </article>
+        <article class="card">
+          <div class="badge">S5</div>
+          <h3>调用后验证</h3>
+          <p>用完怎么自检结果，以及重试 / 换方案 / 如实报告失败的策略。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline">
+    <div class="wrap">
+      <h2>合成数据流水线</h2>
+      <p class="section-intro">六个阶段，从原始 skill 库一路到可训练的 token 语料。</p>
+      <div class="pipe">
+        <div class="stage"><div class="num">01</div><div class="body">
+          <h3>采集</h3><p>克隆 skill 仓库、收割市场站点、拉取工具池（Seal-Tools / xLAM）。</p>
+          <span class="io">configs/sources.yaml → data/raw/</span></div></div>
+        <div class="stage"><div class="num">02</div><div class="body">
+          <h3>解析入库</h3><p>统一成一份 schema，去重。</p>
+          <span class="io">→ data/skills.jsonl · 16,983 skills</span></div></div>
+        <div class="stage"><div class="num">03</div><div class="body">
+          <h3>Stage A · 生成 Spec</h3><p>skill → 五要素 Skill Spec（带 S3 近邻注入、字段校验）。</p>
+          <span class="io">gen_specs.py → data/specs/specs.jsonl</span></div></div>
+        <div class="stage"><div class="num">04</div><div class="body">
+          <h3>Stage B · 生成文档</h3><p>两段式（点子 → 成文）多体裁讨论语料，过泄漏/去重质量闸。</p>
+          <span class="io">gen_docs.py + quality.py → docs_clean.jsonl</span></div></div>
+        <div class="stage"><div class="num">05</div><div class="body">
+          <h3>Stage C · 打包</h3><p>tokenize、文档间插 EOS、切 4096 块、uint32 memmap，可混回放语料。</p>
+          <span class="io">build_corpus.py → data/corpus/*.bin</span></div></div>
+        <div class="stage"><div class="num">06</div><div class="body">
+          <h3>Stage C · Midtrain</h3><p>Qwen3.5-4B-Base 低强度续训（lr 2e-5，512k tok/step，8×GPU）。</p>
+          <span class="io">train_midtrain.py → checkpoints/</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="design">
+    <div class="wrap">
+      <h2>关键设计</h2>
+      <p class="section-intro">几条让语料「干净、有信息量、不泄漏」的核心约束。</p>
+      <div class="feat">
+        <div class="item"><h3><span class="dot"></span>防 SFT 格式泄漏</h3>
+          <p>midtrain 语料严禁出现工具调用轨迹格式（<code>&lt;tool_call&gt;</code>、<code>"arguments":</code>、<code>Action:/Observation:</code> 等）——提示词端禁止 + 正则质量闸双保险。</p></div>
+        <div class="item"><h3><span class="dot"></span>防术语回声</h3>
+          <p>写文档时喂给模型的是无标签摘要（不出现 S1–S5 字样），目标是用自然语言多样重述，而非复读规范条文。</p></div>
+        <div class="item"><h3><span class="dot"></span>Assertion-targeting</h3>
+          <p>每篇文档只聚焦少数要素的原则，整套语料在 skill × 体裁 × 要素上交叉覆盖——单篇有焦点，语料有广度。</p></div>
+        <div class="item"><h3><span class="dot"></span>防虚构</h3>
+          <p>禁止编造日期/作者/引用/链接，禁止把臆造的工具输出或「测得的数字」当真实事实写；审计体裁只能用定性量级。</p></div>
+        <div class="item"><h3><span class="dot"></span>16 种体裁</h3>
+          <p>教程、FAQ、Slack 辩论、事故复盘、审计报告……带权重采样；正式/非正式体裁对「规范」的引用口径不同。</p></div>
+        <div class="item"><h3><span class="dot"></span>接地的 Spec</h3>
+          <p>S1/S4 关于行为与参数的断言必须来自 skill 文档，不得发明能力；S2/S3/S5 允许通用工程判断补全。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="wrap">
+      <h2>进度与路线图</h2>
+      <p class="section-intro">采集解析与试点闭环已完成；全量生成与正式训练尚未启动。</p>
+      <div class="stat-row">
+        <div class="stat"><div class="n">16,983</div><div class="l">入库 skills（12.9k skill_md + 4.1k api_tool）</div></div>
+        <div class="stat"><div class="n">128</div><div class="l">采集的源 repo</div></div>
+        <div class="stat"><div class="n">5 / 16</div><div class="l">Spec 要素 / 文档体裁</div></div>
+        <div class="stat"><div class="n">v4</div><div class="l">当前提示词版本</div></div>
+      </div>
+      <div class="road">
+        <div class="phase"><h3>✓ 已完成</h3><ul>
+          <li class="done">采集 + 解析入库</li>
+          <li class="done">五要素 Spec + S3 近邻注入</li>
+          <li class="done">两段式多体裁文档合成</li>
+          <li class="done">泄漏过滤 + 去重质量闸</li>
+          <li class="done">试点闭环 + smoke 训练</li>
+          <li class="done">提示词迭代 v1→v4</li>
+        </ul></div>
+        <div class="phase"><h3>P0 · 接线小修</h3><ul>
+          <li class="todo">04_docs.sh 切到 v4</li>
+          <li class="todo">加 requirements.txt</li>
+          <li class="todo">小批量抽检 Spec 质量</li>
+        </ul></div>
+        <div class="phase"><h3>P1 · 全量生成</h3><ul>
+          <li class="key">全量 Stage A（16,983 spec）</li>
+          <li class="key">全量 Stage B + 质量审计</li>
+          <li class="todo">准备 ~10% 回放语料</li>
+        </ul></div>
+        <div class="phase"><h3>P2 · 训练 + 评测</h3><ul>
+          <li class="todo">装线性注意力加速包</li>
+          <li class="key">8 卡正式 midtrain</li>
+          <li class="key">设计 skill-selection 评测</li>
+          <li class="key">SSM vs 直接 SFT 泛化对照</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <strong>Skill Spec Midtraining (SSM)</strong> ·
+      <a href="https://github.com/mozhu621/skills-midtrain">github.com/mozhu621/skills-midtrain</a>
+    </div>
+    <div class="cite">
+      参考：Li, Price, Marks, Kutasov. <em>Model Spec Midtraining: Improving How Alignment Training Generalizes.</em>
+      <a href="https://arxiv.org/abs/2605.02087">arXiv:2605.02087</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
