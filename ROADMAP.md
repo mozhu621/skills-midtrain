@@ -31,14 +31,16 @@ SSM 后续工作清单。当前状态：采集+解析已完成、试点闭环已
 
 ## P2 — 训练 + 评测（核心假设验证）🔴💸
 
+> 完整实验协议见 **[`EXPERIMENTS.md`](EXPERIMENTS.md)**（参照 MSM 范式设计：实验臂、数据切分、ID/OOD 评测、消融、超参、成功判据）。
+
+- [ ] 🔴 **数据切分** —— 划出 seen / held-out skill 集（held-out 既不进中训也不进 SFT），固定 seed 落 `data/splits/`。这是测 OOD 泛化的前提。
 - [ ] **环境**：装 `flash-linear-attention` + `causal-conv1d`（Qwen3.5 混合线性注意力，提速正式跑）。
 - [ ] **正式 midtrain**：`NGPU=8 scripts/05_train.sh`（512k tok/step，lr 2e-5 cosine，1 epoch）。
-- [ ] 🔴 **设计 skill-selection 评测** —— 目前**完全没有 eval**，这是最大缺口。
-      需要构造"该调用 / 不该调用 / 该换 skill / 该澄清"的场景集，量化 midtrain 前后的判断变化。
-      可参考 MSM 的 open-QA 与 agentic-misalignment 评测思路（`refs/msm/evals/`）。
-- [ ] 🔴 **Stage-2 tool-use SFT 对照实验** —— 项目核心假设的验证：
-      **baseline（直接 SFT）** vs **SSM-midtrain → SFT**，比较在训练分布**外**的泛化。
-      需要一套留出的 OOD skill / OOD 场景测试集。
+- [ ] 🔴 **构造工具调用 SFT 数据** —— B0/A 两臂共用同一份，确保泛化差异只来自中训。
+- [ ] 🔴 **跑实验臂**：B0(SFT-only) / B1(in-context) / A(SSM→SFT) / C(deliberative，可选)。
+- [ ] 🔴 **skill-selection 评测** —— 目前**完全没有 eval**，最大缺口。按 EXPERIMENTS.md 的 E1–E6
+      （选择 / 该不该调 / 易混辨析 / 调用正确性 / 调用后验证）用 inspect + LLM-judge 跑，对标 MSM 的 54%→7% 叙事。
+- [ ] **消融** A1–A5（要素 / 具体性 / 体裁多样性 / assertion-targeting / 回放比例）复现 MSM 的两个泛化发现。
 
 ## P3 — 完善与扩展（可延后）
 
