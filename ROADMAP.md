@@ -32,15 +32,24 @@ SSM 后续工作清单。当前状态：采集+解析已完成、试点闭环已
 ## P2 — 训练 + 评测（核心假设验证）🔴💸
 
 > 完整实验协议见 **[`EXPERIMENTS.md`](EXPERIMENTS.md)**（参照 MSM 范式设计：实验臂、数据切分、ID/OOD 评测、消融、超参、成功判据）。
+> **代码已就绪**（`src/exp/` + `scripts/06_split.sh`~`10_eval.sh`，pilot 数据上已端到端跑通）；下面剩**全量执行**（吃 GPU/API 预算）。
 
-- [ ] 🔴 **数据切分** —— 划出 seen / held-out skill 集（held-out 既不进中训也不进 SFT），固定 seed 落 `data/splits/`。这是测 OOD 泛化的前提。
+**代码（已就绪，pilot 验证过）**
+
+- [x] **数据切分** —— `src/exp/split.py`（`06_split.sh`）：stratified seen 85% / held-out 15% + 易混对，seed 固定落 `data/splits/`。已在 16,983 skills 上跑出。
+- [x] **工具调用 SFT 数据** —— `src/exp/build_sft.py`（`07_build_sft.sh`）：seen skill 合成 call/abstain 示例，多工具菜单 + 干扰项，completion-only；B0/A 共用同一份。
+- [x] **SFT 训练器** —— `src/exp/sft_train.py`（`08_sft.sh`）：completion-only loss masking，`--model` 选臂（B0=Base / A=midtrained）。
+- [x] **评测生成 + 跑分** —— `src/exp/build_evals.py`（`09`）出 E1–E6 题，`run_eval.py`（`10`）跑模型 + exact-match/LLM-judge 打分，报 mean±stderr，`--in-context` 即臂 B1。
+
+**执行（待跑）💸🔴**
+
 - [ ] **环境**：装 `flash-linear-attention` + `causal-conv1d`（Qwen3.5 混合线性注意力，提速正式跑）。
-- [ ] **正式 midtrain**：`NGPU=8 scripts/05_train.sh`（512k tok/step，lr 2e-5 cosine，1 epoch）。
-- [ ] 🔴 **构造工具调用 SFT 数据** —— B0/A 两臂共用同一份，确保泛化差异只来自中训。
-- [ ] 🔴 **跑实验臂**：B0(SFT-only) / B1(in-context) / A(SSM→SFT) / C(deliberative，可选)。
-- [ ] 🔴 **skill-selection 评测** —— 目前**完全没有 eval**，最大缺口。按 EXPERIMENTS.md 的 E1–E6
-      （选择 / 该不该调 / 易混辨析 / 调用正确性 / 调用后验证）用 inspect + LLM-judge 跑，对标 MSM 的 54%→7% 叙事。
+- [ ] 🔴 **全量切分 + SFT 数据**：`06_split.sh` → `07_build_sft.sh`（先估 seen×3~5 条/skill 的 API 成本）。
+- [ ] 🔴 **正式 midtrain**：`NGPU=8 scripts/05_train.sh`（512k tok/step，lr 2e-5 cosine，1 epoch）→ 得臂 A 的基座。
+- [ ] 🔴 **跑实验臂**：`08_sft.sh` 跑 B0(Base) 与 A(midtrained)；C(deliberative) 可选；B1 用 `10_eval.sh --in-context` 免训。
+- [ ] 🔴 **跑评测**：`09_build_evals.sh` → 对 B0/B1/A 各跑 `10_eval.sh`，看 E2(held-out 选择)/E3(误漏触发) 上 A 是否显著 > B0、向 B1 靠拢，对标 MSM 的 54%→7% 叙事。
 - [ ] **消融** A1–A5（要素 / 具体性 / 体裁多样性 / assertion-targeting / 回放比例）复现 MSM 的两个泛化发现。
+- [ ] （可选）若要对齐 MSM 原文用 **inspect-ai** 复跑评测：现 `run_eval.py` 是自洽实现（同样 mean±stderr + LLM-judge），可加一层 inspect 适配。
 
 ## P3 — 完善与扩展（可延后）
 
@@ -62,3 +71,4 @@ SSM 后续工作清单。当前状态：采集+解析已完成、试点闭环已
 - [x] 试点闭环：5-skill spec / v1·v2 文档 / 打包 / 单卡 4 步 smoke 训练。
 - [x] 提示词迭代 v1→v4（防术语回声 → assertion-targeting → 去虚构 → 中文）。
 - [x] 改写示例报告 `skill_rewrite_report_zh.html` + 完整 README。
+- [x] 实验闭环代码 `src/exp/`（split / build_sft / sft_train / build_evals / run_eval）+ `scripts/06`~`10`，pilot 数据端到端跑通。

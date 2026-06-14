@@ -1,0 +1,29 @@
+# Tool-use SFT (shared recipe for arms B0 and A; pick the arm via --model)
+#   B0:  --model Qwen/Qwen3.5-4B-Base          --output-dir checkpoints/sft_b0
+#   A :  --model checkpoints/ssm_qwen3p5_4b/final --output-dir checkpoints/sft_a
+model: Qwen/Qwen3.5-4B-Base          # default = B0; override with --model for arm A
+data_train: data/sft/sft_train.jsonl
+data_val: data/sft/sft_val.jsonl
+output_dir: checkpoints/sft_b0
+max_len: 2048
+
+# optimization ([SSM] defaults — chat SFT regime, to be tuned)
+lr: 1.0e-5
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.0
+max_grad_norm: 1.0
+epochs: 3
+max_steps: -1
+
+per_device_batch_size: 2
+grad_accum: 8
+
+gradient_checkpointing: true
+attn_implementation: flash_attention_2
+logging_steps: 10
+save_steps: 500
+save_total_limit: 2
+eval_steps: 200
+report_to: []
+seed: 1234
