@@ -24,3 +24,6 @@ venv/
 # ---- os ----
 .DS_Store
 docs/index.pdf
+
+# ---- latex / paper (separate Overleaf git repo, synced independently) ----
+latex/

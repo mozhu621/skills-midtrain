@@ -1,0 +1,21 @@
+# SSM 运行依赖（版本锚定 envs/living-lm，CUDA 12.6 / Python 3.x）
+# 安装：pip install -r requirements.txt
+# 合成阶段（Stage A/B）只需 requests + pyyaml + tqdm；训练阶段（Stage C/D）需要 torch 全家桶。
+
+# —— 合成 / 数据处理 ——
+requests==2.34.0
+PyYAML==6.0.3
+tqdm==4.67.3
+numpy==2.4.3
+
+# —— 训练 / 评测（Stage C/D：midtrain + SFT + run_eval）——
+torch==2.7.0          # 实测 2.7.0+cu126；按本机 CUDA 选对应 wheel
+transformers==5.8.0
+accelerate==1.13.0    # HF Trainer 依赖
+tokenizers==0.22.2
+safetensors==0.7.0
+
+# —— 可选加速（未装则自动回退 sdpa / torch 实现）——
+# flash-attn==2.8.3            # 标准注意力加速；需匹配 CUDA/torch，单独装
+# flash-linear-attention       # Qwen3.5 混合线性注意力，正式 8 卡跑建议装
+# causal-conv1d                # 同上
